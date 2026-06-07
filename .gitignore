@@ -1,0 +1,12 @@
+# Environment / OS / Log Files
+*.log
+Thumbs.db
+.DS_Store
+
+# IDE / Project Configs
+.vscode/
+.idea/
+.gemini/
+.system_generated/
+*.tmp
+*.bak
