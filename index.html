@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Club Letter</title>
+    <link rel="icon" type="image/png" href="Club logo.png">
     <link rel="stylesheet" href="style.css">
 </head>
 
@@ -20,6 +21,14 @@
             <span class="brand-subtitle">The Malnad Technical Club</span>
         </div>
         <div class="header-actions">
+            <!-- Header Format Switcher Button -->
+            <button class="btn-header-switch" id="btnSwitchHeader" title="Switch Letterhead Format">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span id="activeHeaderLabel">Club Header</span>
+            </button>
+
             <!-- Theme Toggle Button -->
             <button class="btn-icon" id="btnThemeToggle" title="Toggle Dark/Light Mode">
                 <!-- Swapped dynamically in JavaScript -->
@@ -38,10 +47,26 @@
     </header>
 
     <!-- Main Content Area -->
-    <main class="dashboard-container">
+    <main class="dashboard-container view-params" id="dashboardContainer">
+
+        <!-- Mobile View Switcher (Visible on mobile/tablet) -->
+        <div class="mobile-tab-bar" id="mobileTabBar">
+            <button type="button" class="mobile-tab-btn active" id="tabBtnParams">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                <span>Letter Form</span>
+            </button>
+            <button type="button" class="mobile-tab-btn" id="tabBtnPreview">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span>Live Preview</span>
+            </button>
+        </div>
 
         <!-- Left Control Panel -->
-        <section class="control-panel">
+        <section class="control-panel" id="controlPanel">
             <h2 class="section-title">Letter Parameters</h2>
 
             <form id="letterForm" onsubmit="event.preventDefault();">
@@ -113,7 +138,17 @@
         </section>
 
         <!-- Right Preview Column -->
-        <section class="preview-column">
+        <section class="preview-column" id="previewColumn">
+
+            <!-- Mobile Quick Return Bar -->
+            <div class="mobile-return-bar" id="mobileReturnBar">
+                <button type="button" class="btn-secondary" id="btnBackToParams">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    Back to Letter Form
+                </button>
+            </div>
 
             <!-- Editing Toolbar -->
             <div class="editing-toolbar">
@@ -236,6 +271,46 @@
             <button type="button" id="btnSaveSettings" class="btn-primary">
                 Save Setup Configuration
             </button>
+        </div>
+    </div>
+
+    <!-- Letterhead Selection Modal -->
+    <div class="modal-overlay active" id="headerSelectModal">
+        <div class="modal modal-wide">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <h2>Select Letterhead</h2>
+                    <p class="modal-subtitle">Choose the header format for your letter</p>
+                </div>
+            </div>
+
+            <div class="header-cards-grid">
+                <!-- Option 1: Normal Club Header -->
+                <div class="header-card" id="cardHeaderClub" role="button" tabindex="0">
+                    <div class="header-card-badge">Official</div>
+                    <div class="header-card-preview">
+                        <img src="header/header.png" alt="Normal Club Letterhead">
+                    </div>
+                    <div class="header-card-info">
+                        <h3>Club Letterhead</h3>
+                        <p>Standard official header for general club operations, administrative permissions, and club communications.</p>
+                        <div class="header-card-btn">Select Club Header &rarr;</div>
+                    </div>
+                </div>
+
+                <!-- Option 2: Event Header -->
+                <div class="header-card" id="cardHeaderEvent" role="button" tabindex="0">
+                    <div class="header-card-badge badge-event">Event</div>
+                    <div class="header-card-preview">
+                        <img src="header/event.png" alt="Event Letterhead">
+                    </div>
+                    <div class="header-card-info">
+                        <h3>Event Letterhead</h3>
+                        <p>Special event header for fests, technical competitions, workshops, and event-specific permissions.</p>
+                        <div class="header-card-btn">Select Event Header &rarr;</div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 

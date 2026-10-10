@@ -38,6 +38,16 @@ To run and preview the dashboard locally:
 
 ---
 
+## 🎨 Updating the Letter Headers
+
+The generator supports both **Club Letterhead** and **Event Letterhead**:
+1. Open the [`header/`](file:///c:/Users/CHINMAY/Desktop/COLLEGE/CLUB/website/Letters/header) folder.
+2. **`header.png`**: Replace with your normal club header image.
+3. **`event.png`**: Replace with your event/fest header image when ready.
+4. Whenever opening the website, users are prompted to choose between the Club and Event letterheads. You can also switch anytime using the **Switch Letterhead** button in the top navigation bar.
+
+---
+
 ## 🔑 Configure API Key
 
 1. When opening the app, a welcoming modal prompts configuration. Click **Configure API Key**.

@@ -79,14 +79,78 @@ document.addEventListener('DOMContentLoaded', () => {
         geminiKeyInput.value = savedGeminiKey;
     }
 
-    // Onboarding welcome popup for new users
+    // Header Selector Elements
+    const headerSelectModal = document.getElementById('headerSelectModal');
+    const cardHeaderClub = document.getElementById('cardHeaderClub');
+    const cardHeaderEvent = document.getElementById('cardHeaderEvent');
+    const btnSwitchHeader = document.getElementById('btnSwitchHeader');
+    const activeHeaderLabel = document.getElementById('activeHeaderLabel');
+    const a4Paper = document.getElementById('a4Paper');
+
+    // Onboarding welcome popup elements
     const welcomeModal = document.getElementById('welcomeModal');
     const btnGoToSettings = document.getElementById('btnGoToSettings');
     const btnExploreFirst = document.getElementById('btnExploreFirst');
 
-    if (!savedGeminiKey && welcomeModal) {
-        // Show welcome onboarding modal if no key is saved
-        welcomeModal.classList.add('active');
+    function applyHeader(type, isInitial = false) {
+        const headerUrl = type === 'event' ? 'header/event.png' : 'header/header.png';
+        const label = type === 'event' ? 'Event Header' : 'Club Header';
+
+        // Update CSS variable and element styles for both viewport and @media print
+        document.documentElement.style.setProperty('--active-header-url', `url("${headerUrl}")`);
+        if (a4Paper) {
+            a4Paper.style.setProperty('background-image', `url("${headerUrl}")`, 'important');
+        }
+
+        if (activeHeaderLabel) {
+            activeHeaderLabel.textContent = label;
+        }
+
+        if (cardHeaderClub) cardHeaderClub.classList.toggle('selected', type !== 'event');
+        if (cardHeaderEvent) cardHeaderEvent.classList.toggle('selected', type === 'event');
+
+        localStorage.setItem('selected_header_type', type);
+
+        if (!isInitial && headerSelectModal) {
+            headerSelectModal.classList.remove('active');
+
+            // If user hasn't configured API key yet, show the onboarding modal after selection
+            if (!savedGeminiKey && welcomeModal) {
+                welcomeModal.classList.add('active');
+            }
+        }
+    }
+
+    // Initialize with stored or default header
+    const storedHeader = localStorage.getItem('selected_header_type') || 'club';
+    applyHeader(storedHeader, true);
+
+    if (cardHeaderClub) {
+        cardHeaderClub.addEventListener('click', () => applyHeader('club'));
+        cardHeaderClub.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                applyHeader('club');
+            }
+        });
+    }
+
+    if (cardHeaderEvent) {
+        cardHeaderEvent.addEventListener('click', () => applyHeader('event'));
+        cardHeaderEvent.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                applyHeader('event');
+            }
+        });
+    }
+
+    if (btnSwitchHeader) {
+        btnSwitchHeader.addEventListener('click', () => {
+            if (headerSelectModal) {
+                headerSelectModal.classList.add('active');
+            }
+        });
     }
 
     if (btnGoToSettings) {
@@ -100,6 +164,48 @@ document.addEventListener('DOMContentLoaded', () => {
         btnExploreFirst.addEventListener('click', () => {
             if (welcomeModal) welcomeModal.classList.remove('active');
         });
+    }
+
+    // Mobile View Tab Switcher Logic
+    const dashboardContainer = document.getElementById('dashboardContainer');
+    const tabBtnParams = document.getElementById('tabBtnParams');
+    const tabBtnPreview = document.getElementById('tabBtnPreview');
+    const btnBackToParams = document.getElementById('btnBackToParams');
+
+    function switchMobileView(view) {
+        if (!dashboardContainer) return;
+        if (view === 'preview') {
+            dashboardContainer.classList.remove('view-params');
+            dashboardContainer.classList.add('view-preview');
+            if (tabBtnParams) tabBtnParams.classList.remove('active');
+            if (tabBtnPreview) tabBtnPreview.classList.add('active');
+            // Trigger auto-fit when switching to preview on mobile
+            setTimeout(() => {
+                if (btnZoomFit) {
+                    btnZoomFit.click();
+                } else if (btnZoomReset) {
+                    btnZoomReset.click();
+                }
+            }, 60);
+        } else {
+            dashboardContainer.classList.remove('view-preview');
+            dashboardContainer.classList.add('view-params');
+            if (tabBtnParams) tabBtnParams.classList.add('active');
+            if (tabBtnPreview) tabBtnPreview.classList.remove('active');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }
+
+    if (tabBtnParams) {
+        tabBtnParams.addEventListener('click', () => switchMobileView('params'));
+    }
+
+    if (tabBtnPreview) {
+        tabBtnPreview.addEventListener('click', () => switchMobileView('preview'));
+    }
+
+    if (btnBackToParams) {
+        btnBackToParams.addEventListener('click', () => switchMobileView('params'));
     }
 
     // Toggle settings modal
@@ -145,6 +251,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Main Letter Generation Trigger
     btnGenerate.addEventListener('click', async () => {
+        // On mobile devices, immediately switch view to live preview so user sees the generation animation
+        if (window.innerWidth <= 960) {
+            switchMobileView('preview');
+        }
+
         const geminiApiKey = localStorage.getItem('gemini_api_key');
 
         if (!geminiApiKey) {
@@ -406,12 +517,13 @@ Please write the letter body and professional subject line now.`;
     const btnZoomIn = document.getElementById('btnZoomIn');
     const btnZoomOut = document.getElementById('btnZoomOut');
     const btnZoomReset = document.getElementById('btnZoomReset');
+    const btnZoomFit = document.getElementById('btnZoomFit');
     const zoomPercent = document.getElementById('zoomPercent');
     const viewport = document.querySelector('.a4-viewport-container');
 
     function setZoom(factor) {
-        // Clamp between 0.45 and 1.50
-        zoomFactor = Math.max(0.45, Math.min(1.50, factor));
+        // Clamp between 0.30 (mobile viewports) and 1.50
+        zoomFactor = Math.max(0.30, Math.min(1.50, factor));
 
         // Set CSS custom property for responsive scaling wrapper and paper
         document.documentElement.style.setProperty('--zoom-factor', zoomFactor);
@@ -419,6 +531,22 @@ Please write the letter body and professional subject line now.`;
         // Update percentage badge
         if (zoomPercent) {
             zoomPercent.textContent = `${Math.round(zoomFactor * 100)}%`;
+        }
+    }
+
+    function calculateFitZoom() {
+        if (!viewport) return 1.0;
+        const viewportWidth = viewport.clientWidth || window.innerWidth;
+        const viewportHeight = viewport.clientHeight || window.innerHeight;
+        // Calculate factor to fit horizontally with comfortable padding
+        const factorX = (viewportWidth - 24) / 650;
+        if (window.innerWidth <= 960) {
+            // Mobile: scale to fit screen width
+            return Math.max(0.30, Math.min(factorX, 1.0));
+        } else {
+            // Desktop: fit height within the viewport container
+            const factorY = (viewportHeight - 36) / 919;
+            return Math.max(0.30, Math.min(factorX, factorY, 1.0));
         }
     }
 
@@ -434,25 +562,33 @@ Please write the letter body and professional subject line now.`;
         });
     }
 
+    // Reset button sets zoom to 100%
     if (btnZoomReset) {
         btnZoomReset.addEventListener('click', () => {
-            if (viewport) {
-                const viewportHeight = viewport.clientHeight;
-                // Subtract 40px for comfortable margins inside viewport bounds
-                const idealFactor = (viewportHeight - 40) / 919;
-                setZoom(idealFactor);
-            } else {
-                setZoom(1.0);
-            }
+            setZoom(1.0);
         });
     }
 
-    // Auto-fit to client window screen height 300ms after DOM load
+    // Fit button automatically fits the document to the current screen
+    if (btnZoomFit) {
+        btnZoomFit.addEventListener('click', () => {
+            setZoom(calculateFitZoom());
+        });
+    }
+
+    // Auto-fit after DOM load
     setTimeout(() => {
-        if (btnZoomReset) {
-            btnZoomReset.click();
-        }
-    }, 300);
+        setZoom(calculateFitZoom());
+    }, 250);
+
+    // Auto-fit on window resize or orientation change
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+            setZoom(calculateFitZoom());
+        }, 120);
+    });
 
     // Interactive Particle Network
     const canvas = document.getElementById('particleCanvas');
@@ -474,6 +610,19 @@ Please write the letter body and professional subject line now.`;
         });
 
         window.addEventListener('mouseleave', () => {
+            mouse.x = null;
+            mouse.y = null;
+        });
+
+        // Touch support on mobile devices
+        window.addEventListener('touchmove', (e) => {
+            if (e.touches && e.touches.length > 0) {
+                mouse.x = e.touches[0].clientX;
+                mouse.y = e.touches[0].clientY;
+            }
+        }, { passive: true });
+
+        window.addEventListener('touchend', () => {
             mouse.x = null;
             mouse.y = null;
         });
