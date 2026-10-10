@@ -67,7 +67,10 @@
 
         <!-- Left Control Panel -->
         <section class="control-panel" id="controlPanel">
-            <h2 class="section-title">Letter Parameters</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                <h2 class="section-title" style="margin-bottom: 0;">Letter Parameters</h2>
+                <button type="button" class="btn-clear-form" id="btnClearForm" title="Clear all fields and letter" style="background: none; border: none; color: var(--text-muted); font-size: 0.75rem; cursor: pointer; text-decoration: underline; padding: 0.2rem 0.4rem;">Reset Form</button>
+            </div>
 
             <form id="letterForm" onsubmit="event.preventDefault();">
                 <!-- Date Input -->
@@ -275,7 +278,7 @@
     </div>
 
     <!-- Letterhead Selection Modal -->
-    <div class="modal-overlay active" id="headerSelectModal">
+    <div class="modal-overlay" id="headerSelectModal">
         <div class="modal modal-wide">
             <div class="modal-header">
                 <div class="modal-title">

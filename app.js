@@ -111,9 +111,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (cardHeaderClub) cardHeaderClub.classList.toggle('selected', type !== 'event');
         if (cardHeaderEvent) cardHeaderEvent.classList.toggle('selected', type === 'event');
 
+        localStorage.setItem('has_selected_header', 'true');
         localStorage.setItem('selected_header_type', type);
 
-        if (!isInitial && headerSelectModal) {
+        if (headerSelectModal) {
             headerSelectModal.classList.remove('active');
 
             // If user hasn't configured API key yet, show the onboarding modal after selection
@@ -124,8 +125,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Initialize with stored or default header
+    const hasSelectedHeader = localStorage.getItem('has_selected_header');
     const storedHeader = localStorage.getItem('selected_header_type') || 'club';
     applyHeader(storedHeader, true);
+
+    // Only show header selection modal if user has NEVER chosen a header yet
+    if (!hasSelectedHeader && headerSelectModal) {
+        headerSelectModal.classList.add('active');
+    } else if (headerSelectModal) {
+        headerSelectModal.classList.remove('active');
+    }
 
     if (cardHeaderClub) {
         cardHeaderClub.addEventListener('click', () => applyHeader('club'));
@@ -181,6 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
             dashboardContainer.classList.add('view-preview');
             if (tabBtnParams) tabBtnParams.classList.remove('active');
             if (tabBtnPreview) tabBtnPreview.classList.add('active');
+            localStorage.setItem('letter_active_mobile_view', 'preview');
             // Set default view of live preview to 55% on mobile
             setZoom(0.55);
         } else {
@@ -188,8 +198,108 @@ document.addEventListener('DOMContentLoaded', () => {
             dashboardContainer.classList.add('view-params');
             if (tabBtnParams) tabBtnParams.classList.add('active');
             if (tabBtnPreview) tabBtnPreview.classList.remove('active');
+            localStorage.setItem('letter_active_mobile_view', 'params');
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
+    }
+
+    // Form and Letter State Auto-Save & Restoration
+    function saveFormState() {
+        localStorage.setItem('letter_form_date', dateInput.value);
+        localStorage.setItem('letter_form_recipient', recipientSelect.value);
+        localStorage.setItem('letter_form_custom_recipient', customRecipient.value);
+        localStorage.setItem('letter_form_subject', subjectInput.value);
+        localStorage.setItem('letter_form_prompt', promptInput.value);
+        localStorage.setItem('letter_form_tone', toneSelect.value);
+    }
+
+    [dateInput, recipientSelect, customRecipient, subjectInput, promptInput, toneSelect].forEach(el => {
+        if (el) {
+            el.addEventListener('input', saveFormState);
+            el.addEventListener('change', saveFormState);
+        }
+    });
+
+    function restoreSavedState() {
+        const savedDate = localStorage.getItem('letter_form_date');
+        if (savedDate) dateInput.value = savedDate;
+
+        const savedRecipient = localStorage.getItem('letter_form_recipient');
+        if (savedRecipient) {
+            recipientSelect.value = savedRecipient;
+            if (savedRecipient === 'custom') {
+                customRecipientGroup.style.display = 'flex';
+                customRecipient.required = true;
+            } else {
+                customRecipientGroup.style.display = 'none';
+                customRecipient.required = false;
+            }
+        }
+
+        const savedCustomRecipient = localStorage.getItem('letter_form_custom_recipient');
+        if (savedCustomRecipient) customRecipient.value = savedCustomRecipient;
+
+        const savedSubject = localStorage.getItem('letter_form_subject');
+        if (savedSubject) subjectInput.value = savedSubject;
+
+        const savedPrompt = localStorage.getItem('letter_form_prompt');
+        if (savedPrompt) promptInput.value = savedPrompt;
+
+        const savedTone = localStorage.getItem('letter_form_tone');
+        if (savedTone) toneSelect.value = savedTone;
+
+        // Restore generated letter if any exists
+        const savedLetterHtml = localStorage.getItem('letter_generated_html');
+        const savedLetterRaw = localStorage.getItem('letter_generated_raw');
+        if (savedLetterHtml && savedLetterHtml.trim()) {
+            letterContainer.innerHTML = savedLetterHtml;
+            generatedBodyRaw = savedLetterRaw || "";
+            btnPrint.disabled = false;
+            btnEdit.disabled = false;
+
+            const savedMobileView = localStorage.getItem('letter_active_mobile_view');
+            if (window.innerWidth <= 960 && savedMobileView === 'preview') {
+                switchMobileView('preview');
+            }
+        }
+    }
+
+    restoreSavedState();
+
+    // Reset Form button handler
+    const btnClearForm = document.getElementById('btnClearForm');
+    if (btnClearForm) {
+        btnClearForm.addEventListener('click', () => {
+            if (confirm('Start a fresh letter? This will clear the form fields and current letter.')) {
+                localStorage.removeItem('letter_form_date');
+                localStorage.removeItem('letter_form_recipient');
+                localStorage.removeItem('letter_form_custom_recipient');
+                localStorage.removeItem('letter_form_subject');
+                localStorage.removeItem('letter_form_prompt');
+                localStorage.removeItem('letter_form_tone');
+                localStorage.removeItem('letter_generated_html');
+                localStorage.removeItem('letter_generated_raw');
+
+                const today = new Date();
+                const yyyy = today.getFullYear();
+                const mm = String(today.getMonth() + 1).padStart(2, '0');
+                const dd = String(today.getDate()).padStart(2, '0');
+                dateInput.value = `${yyyy}-${mm}-${dd}`;
+                recipientSelect.value = "The Principal,\nMalnad College of Engineering,\nHassan - 573202";
+                customRecipientGroup.style.display = 'none';
+                customRecipient.value = "";
+                subjectInput.value = "";
+                promptInput.value = "";
+                toneSelect.value = "formal";
+                letterContainer.innerHTML = "";
+                generatedBodyRaw = "";
+                btnPrint.disabled = true;
+                btnEdit.disabled = true;
+                if (window.innerWidth <= 960) {
+                    switchMobileView('params');
+                }
+            }
+        });
     }
 
     if (tabBtnParams) {
@@ -464,6 +574,10 @@ Please write the letter body and professional subject line now.`;
                 ${processedTextHtml}
             </div>
         `;
+
+        // Auto-save generated letter so refreshing never loses it
+        localStorage.setItem('letter_generated_html', letterContainer.innerHTML);
+        localStorage.setItem('letter_generated_raw', generatedBodyRaw);
     }
 
     // Toggle Manual Inline Editor
@@ -494,6 +608,15 @@ Please write the letter body and professional subject line now.`;
 
             btnGenerate.disabled = false;
             btnPrint.disabled = false;
+
+            // Auto-save edited letter content
+            localStorage.setItem('letter_generated_html', letterContainer.innerHTML);
+        }
+    });
+
+    letterContainer.addEventListener('input', () => {
+        if (isEditing) {
+            localStorage.setItem('letter_generated_html', letterContainer.innerHTML);
         }
     });
 
