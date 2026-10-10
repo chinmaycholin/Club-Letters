@@ -103,7 +103,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (activeHeaderLabel) {
-            activeHeaderLabel.textContent = label;
+            activeHeaderLabel.textContent = (window.innerWidth <= 680)
+                ? (type === 'event' ? 'Event' : 'Club')
+                : label;
         }
 
         if (cardHeaderClub) cardHeaderClub.classList.toggle('selected', type !== 'event');
@@ -179,14 +181,8 @@ document.addEventListener('DOMContentLoaded', () => {
             dashboardContainer.classList.add('view-preview');
             if (tabBtnParams) tabBtnParams.classList.remove('active');
             if (tabBtnPreview) tabBtnPreview.classList.add('active');
-            // Trigger auto-fit when switching to preview on mobile
-            setTimeout(() => {
-                if (btnZoomFit) {
-                    btnZoomFit.click();
-                } else if (btnZoomReset) {
-                    btnZoomReset.click();
-                }
-            }, 60);
+            // Set default view of live preview to 55% on mobile
+            setZoom(0.55);
         } else {
             dashboardContainer.classList.remove('view-preview');
             dashboardContainer.classList.add('view-params');
@@ -535,19 +531,16 @@ Please write the letter body and professional subject line now.`;
     }
 
     function calculateFitZoom() {
+        if (window.innerWidth <= 960) {
+            // Default view of live preview in mobile view is 55%
+            return 0.55;
+        }
         if (!viewport) return 1.0;
         const viewportWidth = viewport.clientWidth || window.innerWidth;
         const viewportHeight = viewport.clientHeight || window.innerHeight;
-        // Calculate factor to fit horizontally with comfortable padding
         const factorX = (viewportWidth - 24) / 650;
-        if (window.innerWidth <= 960) {
-            // Mobile: scale to fit screen width
-            return Math.max(0.30, Math.min(factorX, 1.0));
-        } else {
-            // Desktop: fit height within the viewport container
-            const factorY = (viewportHeight - 36) / 919;
-            return Math.max(0.30, Math.min(factorX, factorY, 1.0));
-        }
+        const factorY = (viewportHeight - 36) / 919;
+        return Math.max(0.30, Math.min(factorX, factorY, 1.0));
     }
 
     if (btnZoomIn) {
@@ -576,17 +569,27 @@ Please write the letter body and professional subject line now.`;
         });
     }
 
-    // Auto-fit after DOM load
+    // Auto-fit after DOM load (55% on mobile, fit on desktop)
     setTimeout(() => {
         setZoom(calculateFitZoom());
-    }, 250);
+    }, 200);
 
-    // Auto-fit on window resize or orientation change
+    // Auto-adjust on window resize or orientation change
     let resizeTimer;
     window.addEventListener('resize', () => {
         clearTimeout(resizeTimer);
         resizeTimer = setTimeout(() => {
-            setZoom(calculateFitZoom());
+            const type = localStorage.getItem('selected_header_type') || 'club';
+            if (activeHeaderLabel) {
+                activeHeaderLabel.textContent = (window.innerWidth <= 680)
+                    ? (type === 'event' ? 'Event' : 'Club')
+                    : (type === 'event' ? 'Event Header' : 'Club Header');
+            }
+            if (window.innerWidth <= 960) {
+                setZoom(0.55);
+            } else {
+                setZoom(calculateFitZoom());
+            }
         }, 120);
     });
 

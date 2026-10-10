@@ -1107,6 +1107,10 @@ body.dark-theme .header-card-preview {
 
 /* Tablet & Mobile Breakpoint (<= 960px) */
 @media screen and (max-width: 960px) {
+    :root {
+        --zoom-factor: 0.55;
+    }
+
     .dashboard-container {
         display: flex;
         flex-direction: column;
@@ -1143,51 +1147,69 @@ body.dark-theme .header-card-preview {
 /* Smartphone Breakpoint (<= 680px) */
 @media screen and (max-width: 680px) {
     header {
-        padding: 0.5rem 0.85rem;
-        min-height: 56px;
+        padding: 0.5rem 0.65rem;
+        min-height: 54px;
         position: sticky;
         top: 0;
         z-index: 200;
         background: var(--bg-surface);
         backdrop-filter: blur(16px);
         -webkit-backdrop-filter: blur(16px);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.4rem;
     }
 
     .brand-logo img {
-        height: 34px;
-        width: 34px;
+        height: 32px;
+        width: 32px;
+        flex-shrink: 0;
     }
 
     .brand-title-center {
         position: static;
         transform: none;
         flex: 1;
-        margin: 0 0.5rem;
-        justify-content: center;
+        margin: 0 0.35rem;
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        min-width: 0;
     }
 
     .brand-subtitle {
-        font-size: 1.05rem;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        max-width: 140px;
+        font-family: 'Algerian', 'Times New Roman', serif;
+        font-size: clamp(0.72rem, 3.1vw, 0.95rem);
+        font-weight: 600;
+        letter-spacing: 0.2px;
+        white-space: normal;
+        line-height: 1.15;
+        max-width: none;
+        overflow: visible;
+        text-overflow: clip;
+        display: inline-block;
+        text-align: left;
     }
 
     .header-actions {
         gap: 0.35rem;
+        flex-shrink: 0;
     }
 
     .btn-header-switch {
         padding: 0.35rem 0.55rem;
         font-size: 0.75rem;
         gap: 0.3rem;
+        white-space: nowrap;
+        flex-shrink: 0;
     }
 
     .btn-icon {
         width: 2rem;
         height: 2rem;
         border-radius: 0.5rem;
+        flex-shrink: 0;
     }
 
     .btn-icon svg {
@@ -1291,7 +1313,8 @@ body.dark-theme .header-card-preview {
 /* Extra Small Phones (<= 380px) */
 @media screen and (max-width: 380px) {
     .brand-subtitle {
-        display: none;
+        font-size: 0.72rem;
+        line-height: 1.12;
     }
     
     .btn-header-switch span {
