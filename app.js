@@ -637,43 +637,108 @@ Please write the letter body and professional subject line now.`;
         return `MTC_Permission_${subj}_${dateVal}.pdf`;
     }
 
-    // High-Resolution 300 DPI Client-Side A4 PDF Generator
+    // High-Resolution Client-Side A4 PDF Generator (Optimized for Mobile & Desktop)
     async function generatePdfInstance() {
-        if (!a4Paper) return null;
+        if (!a4Paper || !window.jspdf || !window.html2canvas) return null;
+
+        // Create an isolated container at (0, 0), hidden safely behind the UI
+        const container = document.createElement('div');
+        container.style.position = 'fixed';
+        container.style.top = '0px';
+        container.style.left = '0px';
+        container.style.width = '650px';
+        container.style.height = '919px';
+        container.style.overflow = 'hidden';
+        container.style.zIndex = '-9999';
+        container.style.pointerEvents = 'none';
 
         const clone = a4Paper.cloneNode(true);
         const rawBg = document.documentElement.style.getPropertyValue('--active-header-url') || 'url("header/header.png")';
         const cleanUrl = rawBg.replace(/url\(['"]?([^'"]+)['"]?\)/i, '$1').trim();
 
-        // Exact unscaled A4 dimensions for crisp rendering
+        // Exact unscaled A4 dimensions without CSS transforms, transitions or shadows
         clone.style.transform = 'none';
-        clone.style.position = 'fixed';
-        clone.style.top = '0';
-        clone.style.left = '-99999px';
+        clone.style.webkitTransform = 'none';
+        clone.style.position = 'relative';
+        clone.style.top = '0px';
+        clone.style.left = '0px';
         clone.style.width = '650px';
         clone.style.height = '919px';
         clone.style.margin = '0';
         clone.style.borderRadius = '0';
         clone.style.boxShadow = 'none';
-        clone.style.zIndex = '-9999';
-        clone.style.backgroundImage = `url("${cleanUrl}")`;
-        clone.style.backgroundSize = '100% 100%';
-        clone.style.backgroundRepeat = 'no-repeat';
+        clone.style.border = 'none';
         clone.style.backgroundColor = '#ffffff';
+        clone.style.backgroundImage = 'none'; // Avoid CSS background-image fetch locks in html2canvas
 
-        document.body.appendChild(clone);
+        // Insert explicit letterhead image tag as the bottom layer
+        const bgImg = document.createElement('img');
+        bgImg.src = cleanUrl;
+        bgImg.crossOrigin = 'anonymous';
+        bgImg.style.position = 'absolute';
+        bgImg.style.top = '0px';
+        bgImg.style.left = '0px';
+        bgImg.style.width = '650px';
+        bgImg.style.height = '919px';
+        bgImg.style.objectFit = 'fill';
+        bgImg.style.zIndex = '0';
+        bgImg.style.pointerEvents = 'none';
+
+        clone.insertBefore(bgImg, clone.firstChild);
+
+        // Ensure text content container is placed on top of background image
+        const contentContainer = clone.querySelector('.letter-content-container');
+        if (contentContainer) {
+            contentContainer.style.zIndex = '1';
+        }
+
+        container.appendChild(clone);
+        document.body.appendChild(container);
+
+        // Wait for image decode/load with safety cap
+        if (!bgImg.complete) {
+            await new Promise((resolve) => {
+                bgImg.onload = resolve;
+                bgImg.onerror = resolve;
+                setTimeout(resolve, 600);
+            });
+        }
+        if (bgImg.decode) {
+            try { await bgImg.decode(); } catch (_) {}
+        }
+
+        // Brief tick to allow DOM layout
         await new Promise(r => setTimeout(r, 60));
 
         try {
-            const canvas = await html2canvas(clone, {
-                scale: 2.5, // 2.5x standard screen gives ~1625 x 2297px crisp output
+            // Cap scale at 1.6 on mobile devices to prevent excessive canvas buffer and browser freezes
+            const isMobile = window.innerWidth <= 960;
+            const targetScale = isMobile ? 1.6 : 2.0;
+
+            const canvasPromise = window.html2canvas(clone, {
+                scale: targetScale,
+                width: 650,
+                height: 919,
+                windowWidth: 650,
+                windowHeight: 919,
+                x: 0,
+                y: 0,
+                scrollX: 0,
+                scrollY: 0,
                 useCORS: true,
                 allowTaint: true,
                 backgroundColor: '#ffffff',
+                imageTimeout: 2000,
                 logging: false
             });
 
-            const imgData = canvas.toDataURL('image/jpeg', 0.95);
+            // 4-second timeout race to strictly prevent hanging on any device
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('PDF generation timed out')), 4000);
+            });
+
+            const canvas = await Promise.race([canvasPromise, timeoutPromise]);
+            const imgData = canvas.toDataURL('image/jpeg', 0.92);
 
             const { jsPDF } = window.jspdf;
             const pdf = new jsPDF({
@@ -686,8 +751,8 @@ Please write the letter body and professional subject line now.`;
             pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
             return pdf;
         } finally {
-            if (clone.parentNode) {
-                clone.parentNode.removeChild(clone);
+            if (container.parentNode) {
+                container.parentNode.removeChild(container);
             }
         }
     }
@@ -743,48 +808,62 @@ Please write the letter body and professional subject line now.`;
                 Preparing...
             `;
 
+            let generatedPdf = null;
+            const fileName = getCleanFileName();
+
             try {
                 if (window.jspdf && window.html2canvas) {
-                    const pdf = await generatePdfInstance();
-                    if (pdf) {
-                        const fileName = getCleanFileName();
-                        const pdfBlob = pdf.output('blob');
-                        const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
+                    generatedPdf = await generatePdfInstance();
+                }
 
-                        // Check if Web Share API supports file sharing
-                        if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+                if (generatedPdf) {
+                    const pdfBlob = generatedPdf.output('blob');
+                    const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
+                    const shareText = subjectInput.value.trim() ? `Permission Letter: ${subjectInput.value.trim()}` : 'Permission Letter';
+
+                    // Check if native Web Share with file attachment is supported
+                    if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+                        try {
                             await navigator.share({
                                 files: [pdfFile],
                                 title: 'The Malnad Technical Club - Permission Letter',
-                                text: subjectInput.value.trim() ? `Permission Letter: ${subjectInput.value.trim()}` : 'Permission Letter'
+                                text: shareText
                             });
                             return;
-                        } else if (navigator.share) {
-                            // Web share without file support: download file and share text
-                            pdf.save(fileName);
-                            await navigator.share({
-                                title: 'The Malnad Technical Club - Permission Letter',
-                                text: subjectInput.value.trim() ? `Permission Letter: ${subjectInput.value.trim()}` : 'Permission Letter'
-                            });
-                            return;
-                        } else {
-                            // Web share not supported (e.g. desktop): download file directly
-                            pdf.save(fileName);
-                            alert('PDF file downloaded directly to your device! You can now attach and share it.');
-                            return;
+                        } catch (shareErr) {
+                            if (shareErr.name === 'AbortError') {
+                                return; // User closed share sheet, perfectly normal
+                            }
+                            console.warn('Native file share failed, falling back to download:', shareErr);
                         }
                     }
+
+                    // Fallback: If file share unsupported or failed, download PDF directly and share text if possible
+                    generatedPdf.save(fileName);
+
+                    if (navigator.share) {
+                        try {
+                            await navigator.share({
+                                title: 'The Malnad Technical Club - Permission Letter',
+                                text: shareText
+                            });
+                        } catch (err) {
+                            if (err.name !== 'AbortError') console.warn(err);
+                        }
+                    } else {
+                        alert('PDF file downloaded directly to your device! You can now attach and share it.');
+                    }
+                    return;
                 }
-                // Fallback
+
+                // If generation wasn't available, fallback to print
                 window.print();
             } catch (err) {
-                if (err.name !== 'AbortError') {
-                    console.error('Share error:', err);
-                    alert('Sharing could not be completed. The PDF will be downloaded directly.');
-                    if (window.jspdf && window.html2canvas) {
-                        const pdf = await generatePdfInstance();
-                        if (pdf) pdf.save(getCleanFileName());
-                    }
+                console.error('Share error:', err);
+                if (generatedPdf) {
+                    generatedPdf.save(fileName);
+                } else {
+                    window.print();
                 }
             } finally {
                 btnShare.disabled = false;
