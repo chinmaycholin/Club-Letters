@@ -51,6 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnGenerate = document.getElementById('btnGenerate');
     const btnEdit = document.getElementById('btnEdit');
     const btnPrint = document.getElementById('btnPrint');
+    const btnShare = document.getElementById('btnShare');
     const btnSettings = document.getElementById('btnSettings');
     const btnSaveSettings = document.getElementById('btnSaveSettings');
     const btnCloseSettings = document.getElementById('btnCloseSettings');
@@ -255,6 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
             letterContainer.innerHTML = savedLetterHtml;
             generatedBodyRaw = savedLetterRaw || "";
             btnPrint.disabled = false;
+            if (btnShare) btnShare.disabled = false;
             btnEdit.disabled = false;
 
             const savedMobileView = localStorage.getItem('letter_active_mobile_view');
@@ -294,6 +296,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 letterContainer.innerHTML = "";
                 generatedBodyRaw = "";
                 btnPrint.disabled = true;
+                if (btnShare) btnShare.disabled = true;
                 btnEdit.disabled = true;
                 if (window.innerWidth <= 960) {
                     switchMobileView('params');
@@ -415,6 +418,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnGenerate.disabled = true;
         btnEdit.disabled = true;
         btnPrint.disabled = true;
+        if (btnShare) btnShare.disabled = true;
 
         try {
             let result;
@@ -514,6 +518,7 @@ Please write the letter body and professional subject line now.`;
             // Enable Actions
             btnEdit.disabled = false;
             btnPrint.disabled = false;
+            if (btnShare) btnShare.disabled = false;
 
         } catch (error) {
             console.error(error);
@@ -596,6 +601,7 @@ Please write the letter body and professional subject line now.`;
             // Disable other controls while editing to prevent sync loss
             btnGenerate.disabled = true;
             btnPrint.disabled = true;
+            if (btnShare) btnShare.disabled = true;
         } else {
             // Save edits
             isEditing = false;
@@ -608,6 +614,7 @@ Please write the letter body and professional subject line now.`;
 
             btnGenerate.disabled = false;
             btnPrint.disabled = false;
+            if (btnShare) btnShare.disabled = false;
 
             // Auto-save edited letter content
             localStorage.setItem('letter_generated_html', letterContainer.innerHTML);
@@ -620,16 +627,171 @@ Please write the letter body and professional subject line now.`;
         }
     });
 
-    // Download PDF Action
-    btnPrint.addEventListener('click', () => {
-        // If editing is active, save it first
+    // PDF Name Generation Helper
+    function getCleanFileName() {
+        const dateVal = dateInput.value || new Date().toISOString().slice(0, 10);
+        let subj = 'Letter';
+        if (subjectInput && subjectInput.value.trim()) {
+            subj = subjectInput.value.trim().slice(0, 28).replace(/[^a-zA-Z0-9_-]/g, '_');
+        }
+        return `MTC_Permission_${subj}_${dateVal}.pdf`;
+    }
+
+    // High-Resolution 300 DPI Client-Side A4 PDF Generator
+    async function generatePdfInstance() {
+        if (!a4Paper) return null;
+
+        const clone = a4Paper.cloneNode(true);
+        const rawBg = document.documentElement.style.getPropertyValue('--active-header-url') || 'url("header/header.png")';
+        const cleanUrl = rawBg.replace(/url\(['"]?([^'"]+)['"]?\)/i, '$1').trim();
+
+        // Exact unscaled A4 dimensions for crisp rendering
+        clone.style.transform = 'none';
+        clone.style.position = 'fixed';
+        clone.style.top = '0';
+        clone.style.left = '-99999px';
+        clone.style.width = '650px';
+        clone.style.height = '919px';
+        clone.style.margin = '0';
+        clone.style.borderRadius = '0';
+        clone.style.boxShadow = 'none';
+        clone.style.zIndex = '-9999';
+        clone.style.backgroundImage = `url("${cleanUrl}")`;
+        clone.style.backgroundSize = '100% 100%';
+        clone.style.backgroundRepeat = 'no-repeat';
+        clone.style.backgroundColor = '#ffffff';
+
+        document.body.appendChild(clone);
+        await new Promise(r => setTimeout(r, 60));
+
+        try {
+            const canvas = await html2canvas(clone, {
+                scale: 2.5, // 2.5x standard screen gives ~1625 x 2297px crisp output
+                useCORS: true,
+                allowTaint: true,
+                backgroundColor: '#ffffff',
+                logging: false
+            });
+
+            const imgData = canvas.toDataURL('image/jpeg', 0.95);
+
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF({
+                orientation: 'portrait',
+                unit: 'mm',
+                format: 'a4',
+                compress: true
+            });
+
+            pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
+            return pdf;
+        } finally {
+            if (clone.parentNode) {
+                clone.parentNode.removeChild(clone);
+            }
+        }
+    }
+
+    // Automatic Direct Browser PDF Download
+    btnPrint.addEventListener('click', async () => {
         if (isEditing) {
             btnEdit.click();
         }
 
-        // Trigger browser print dialog
-        window.print();
+        const originalText = btnPrint.innerHTML;
+        btnPrint.disabled = true;
+        btnPrint.innerHTML = `
+            <svg class="spin-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-dasharray="32" stroke-linecap="round" />
+            </svg>
+            Downloading...
+        `;
+
+        try {
+            if (window.jspdf && window.html2canvas) {
+                const pdf = await generatePdfInstance();
+                if (pdf) {
+                    const fileName = getCleanFileName();
+                    pdf.save(fileName);
+                    return;
+                }
+            }
+            // Fallback to browser print dialog
+            window.print();
+        } catch (err) {
+            console.error('PDF download error:', err);
+            window.print();
+        } finally {
+            btnPrint.disabled = false;
+            btnPrint.innerHTML = originalText;
+        }
     });
+
+    // Mobile & Desktop Native Share Option
+    if (btnShare) {
+        btnShare.addEventListener('click', async () => {
+            if (isEditing) {
+                btnEdit.click();
+            }
+
+            const originalText = btnShare.innerHTML;
+            btnShare.disabled = true;
+            btnShare.innerHTML = `
+                <svg class="spin-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-dasharray="32" stroke-linecap="round" />
+                </svg>
+                Preparing...
+            `;
+
+            try {
+                if (window.jspdf && window.html2canvas) {
+                    const pdf = await generatePdfInstance();
+                    if (pdf) {
+                        const fileName = getCleanFileName();
+                        const pdfBlob = pdf.output('blob');
+                        const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+                        // Check if Web Share API supports file sharing
+                        if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+                            await navigator.share({
+                                files: [pdfFile],
+                                title: 'The Malnad Technical Club - Permission Letter',
+                                text: subjectInput.value.trim() ? `Permission Letter: ${subjectInput.value.trim()}` : 'Permission Letter'
+                            });
+                            return;
+                        } else if (navigator.share) {
+                            // Web share without file support: download file and share text
+                            pdf.save(fileName);
+                            await navigator.share({
+                                title: 'The Malnad Technical Club - Permission Letter',
+                                text: subjectInput.value.trim() ? `Permission Letter: ${subjectInput.value.trim()}` : 'Permission Letter'
+                            });
+                            return;
+                        } else {
+                            // Web share not supported (e.g. desktop): download file directly
+                            pdf.save(fileName);
+                            alert('PDF file downloaded directly to your device! You can now attach and share it.');
+                            return;
+                        }
+                    }
+                }
+                // Fallback
+                window.print();
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    console.error('Share error:', err);
+                    alert('Sharing could not be completed. The PDF will be downloaded directly.');
+                    if (window.jspdf && window.html2canvas) {
+                        const pdf = await generatePdfInstance();
+                        if (pdf) pdf.save(getCleanFileName());
+                    }
+                }
+            } finally {
+                btnShare.disabled = false;
+                btnShare.innerHTML = originalText;
+            }
+        });
+    }
 
     // Zoom Controls State and Logic
     let zoomFactor = 1.0;
