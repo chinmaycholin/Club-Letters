@@ -653,10 +653,15 @@ Please write the letter body and professional subject line now.`;
         container.style.pointerEvents = 'none';
 
         const clone = a4Paper.cloneNode(true);
+        // Remove spinner or non-printable overlays from the clone
+        const spinner = clone.querySelector('.spinner-container');
+        if (spinner) spinner.remove();
+
         const rawBg = document.documentElement.style.getPropertyValue('--active-header-url') || 'url("header/header.png")';
         const cleanUrl = rawBg.replace(/url\(['"]?([^'"]+)['"]?\)/i, '$1').trim();
 
         // Exact unscaled A4 dimensions without CSS transforms, transitions or shadows
+        clone.style.display = 'block';
         clone.style.transform = 'none';
         clone.style.webkitTransform = 'none';
         clone.style.position = 'relative';
@@ -671,10 +676,9 @@ Please write the letter body and professional subject line now.`;
         clone.style.backgroundColor = '#ffffff';
         clone.style.backgroundImage = 'none'; // Avoid CSS background-image fetch locks in html2canvas
 
-        // Insert explicit letterhead image tag as the bottom layer
+        // Insert explicit letterhead image tag as the bottom layer (no crossOrigin to avoid CORS blocks)
         const bgImg = document.createElement('img');
         bgImg.src = cleanUrl;
-        bgImg.crossOrigin = 'anonymous';
         bgImg.style.position = 'absolute';
         bgImg.style.top = '0px';
         bgImg.style.left = '0px';
@@ -711,9 +715,9 @@ Please write the letter body and professional subject line now.`;
         await new Promise(r => setTimeout(r, 60));
 
         try {
-            // Cap scale at 1.6 on mobile devices to prevent excessive canvas buffer and browser freezes
+            // Cap scale at 1.5 on mobile devices to prevent excessive canvas buffer
             const isMobile = window.innerWidth <= 960;
-            const targetScale = isMobile ? 1.6 : 2.0;
+            const targetScale = isMobile ? 1.5 : 1.8;
 
             const canvasPromise = window.html2canvas(clone, {
                 scale: targetScale,
@@ -725,8 +729,6 @@ Please write the letter body and professional subject line now.`;
                 y: 0,
                 scrollX: 0,
                 scrollY: 0,
-                useCORS: true,
-                allowTaint: true,
                 backgroundColor: '#ffffff',
                 imageTimeout: 2000,
                 logging: false
@@ -757,6 +759,21 @@ Please write the letter body and professional subject line now.`;
         }
     }
 
+    // Direct Browser PDF Download Helper
+    function triggerBlobDownload(blob, fileName) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+            if (a.parentNode) a.parentNode.removeChild(a);
+            URL.revokeObjectURL(url);
+        }, 3000);
+    }
+
     // Automatic Direct Browser PDF Download
     btnPrint.addEventListener('click', async () => {
         if (isEditing) {
@@ -777,15 +794,15 @@ Please write the letter body and professional subject line now.`;
                 const pdf = await generatePdfInstance();
                 if (pdf) {
                     const fileName = getCleanFileName();
-                    pdf.save(fileName);
+                    const pdfBlob = pdf.output('blob');
+                    triggerBlobDownload(pdfBlob, fileName);
                     return;
                 }
             }
-            // Fallback to browser print dialog
-            window.print();
+            alert('Could not generate PDF. Please ensure letter content is filled.');
         } catch (err) {
             console.error('PDF download error:', err);
-            window.print();
+            alert('Unable to generate PDF directly on this device. Please try using the Share button.');
         } finally {
             btnPrint.disabled = false;
             btnPrint.innerHTML = originalText;
@@ -839,7 +856,7 @@ Please write the letter body and professional subject line now.`;
                     }
 
                     // Fallback: If file share unsupported or failed, download PDF directly and share text if possible
-                    generatedPdf.save(fileName);
+                    triggerBlobDownload(pdfBlob, fileName);
 
                     if (navigator.share) {
                         try {
@@ -856,14 +873,14 @@ Please write the letter body and professional subject line now.`;
                     return;
                 }
 
-                // If generation wasn't available, fallback to print
-                window.print();
+                alert('Could not generate PDF. Please ensure letter content is filled.');
             } catch (err) {
                 console.error('Share error:', err);
                 if (generatedPdf) {
-                    generatedPdf.save(fileName);
+                    const pdfBlob = generatedPdf.output('blob');
+                    triggerBlobDownload(pdfBlob, fileName);
                 } else {
-                    window.print();
+                    alert('Unable to prepare PDF for sharing.');
                 }
             } finally {
                 btnShare.disabled = false;
